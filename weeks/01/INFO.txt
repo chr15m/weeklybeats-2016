@@ -1,2 +1,3 @@
 seed: high & tight 4 life
 autotracker: 72f22581b769be4587ceaeda1b07f7fa993d3b6e
+command: python autotracker/autotracker-chipsynths.py "high & tight 4 life"
