@@ -1,0 +1,3 @@
+seed: the observable universe is my homeboy
+autotracker: 57ff48c1e5b347e2d9dc1fd98d8f296e2b10da5b
+command: python autotracker/autotracker-breaks-chipsynths.py "the observable universe is my homeboy"
