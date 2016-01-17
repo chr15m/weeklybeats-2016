@@ -3,3 +3,5 @@
 .*.swp
 *.mp3
 *.wav
+pdvstdebug.txt
+pdstderr.txt
