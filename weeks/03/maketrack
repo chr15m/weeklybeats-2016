@@ -20,6 +20,11 @@
 (defn get-random-808 [n]
   (os.path.join samples "808" (random.choice (list-comp f [f (os.listdir (os.path.join samples "808"))] (and (f.startswith n) (f.endswith ".wav"))))))
 
+(defn fx [c] (- (ord c) 96))
+
+(defn get-wrapped [array index]
+  (get array (% (int index) (len array))))
+
 (defn dir-to-samples [d itf] (list-comp
                                (itf.smp_add (Sample_File :name (os.path.basename f) :filename (os.path.join d f)))
                                [f (os.listdir d)]
