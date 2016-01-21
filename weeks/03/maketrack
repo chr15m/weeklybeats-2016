@@ -2,6 +2,7 @@
 
 (import os)
 (import sys)
+(import math)
 (import random)
 
 (require hy.contrib.loop)
@@ -24,6 +25,19 @@
 
 (defn get-wrapped [array index]
   (get array (% (int index) (len array))))
+
+; taken from pure-data
+(defn mtof [m]
+  (cond
+    [(<= m -1500) 0]
+    [(> m 1499) (mtof 1499)]
+    [true (* (math.exp (* m .0577622650)) 8.17579891564)]))
+
+; taken from pure-data
+(defn ftom [f]
+  (if (> f 0)
+    (* (math.log (* f .12231220585)) 17.3123405046)
+    -1500))
 
 (defn dir-to-samples [d itf] (list-comp
                                (itf.smp_add (Sample_File :name (os.path.basename f) :filename (os.path.join d f)))
@@ -73,20 +87,19 @@
 
 ; TODO: two kinds of break rhythm
 ; TODO: break repeats, break fills
-(defn make-breaks-fn [sample-chunks-break sample-bassdrum sample-snaredrum &optional [break-pitch 60]]
-  (let [[break-loop (list-comp x [x (range 16)])]
-        [break-pace 8]
-        [beat-pace 4]
-        [bass-snare-rhythm (random.choice [[1 0 2 0  0 1 2 0]
+(defn make-breaks-fn [sample-chunks-break sample-bassdrum sample-snaredrum &optional [break-pitch 60] [break-pace 4] [beat-pace 4]]
+  (let [[bass-snare-rhythm (random.choice [[1 0 2 0  0 1 2 0]
                                            [0 1 2 0  1 0 2 0]
                                            [1 0 0 1  0 0 2 0]
-                                           [1 0 2 1  0 2 0 0]])]]
+                                           [1 0 2 1  0 2 0 0]])]
+        [break-rhythm (random.choice [[0 1 2 3  4 5 6 7  8 9 10 11  12 13 14 15]
+                                      [0 1 2 0  1 2 3 4  8 9 10 8  9 10 14 15]])]]
     (fn [channel-number pattern strategy rhythm beat-begin beats-length key-root key-chord]
       (for [row (xrange beat-begin (+ beat-begin beats-length))]
         ; lay down the breakbeat
         (if (= (% row break-pace) 0)
         (setv (get (get pattern.data row) channel-number)
-          [break-pitch (get-wrapped sample-chunks-break (/ row break-pace)) 255 0 0]))
+          [break-pitch (get-wrapped sample-chunks-break (get-wrapped break-rhythm (/ row break-pace))) 255 0 0]))
         ; lay down the back-beat
         (if (= (% row beat-pace) 0)
           (let [[which-drum (get-wrapped bass-snare-rhythm (/ row beat-pace))]]
@@ -127,7 +140,11 @@
           [sample-bassdrum (itf.smp_add (Sample_File :name "bassdrum" :filename (get-random-sample "CanOfBeats" "bd")))]
           [sample-snaredrum (itf.smp_add (Sample_File :name "snaredrum" :filename (get-random-sample "CanOfBeats" "sd")))]
           [sample-break (random.choice ["amen.wav" "think.wav"])]
-          [sample-chunks-break (list-comp (itf.smp_add (Sample_FileSlice :filename (os.path.join samples sample-break) :slices 4 :which s)) [s (range 4)])]
+          [break-chunk-count 8]
+          [sample-chunks-break (list-comp (itf.smp_add (Sample_FileSlice :filename (os.path.join samples sample-break) :slices break-chunk-count :which s)) [s (range break-chunk-count)])]
+          [length-break-chunk (len (getattr (get itf.smplist (- (get sample-chunks-break 0) 1)) "data"))]
+          [length-beat (int (* 44100 (/ 60.0 itf.tempo)))]
+          [break-note (ftom (* (mtof 60) (/ length-break-chunk length-beat) (/ break-chunk-count 4)))]
           ;[samples-808-hihat (list-comp (itf.smp_add (Sample_File :name (+ "808-hihat-" (unicode b)) :filename (get-random-sample "808" "hi hat-snappy"))) [b (xrange 3)])]
           [samples-sfxrs (dir-to-samples (os.path.join here "samples") itf)]
           ; compute a two basic sequences of notes using the fractal melody method
@@ -148,8 +165,8 @@
       ;(strategy.gen_add (Generator_ProbabilityTable sample-808-bassdrum :probability-table bd-prob))
       ;(strategy.gen_add (Generator_ProbabilityTable sample-808-snaredrum :probability-table sd-prob))
       ;(strategy.gen_add (Generator_Callback 1 (make-hats-fn samples-hihat)))
-
-      ; (strategy.gen_add (Generator_Callback 2 (make-breaks-fn sample-chunks-break sample-bassdrum sample-snaredrum :break-pitch (+ 59 (int (/ (- itf.tempo 165) 4))))))
+      
+      (strategy.gen_add (Generator_Callback 2 (make-breaks-fn sample-chunks-break sample-bassdrum sample-snaredrum :break-pitch (int (math.floor break-note)))))
       (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-main [0 0 0 0 1 1 1 1])))
       (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-bass [0 0 0 0 1 1 1 1])))
 
