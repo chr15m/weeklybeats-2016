@@ -81,13 +81,16 @@
           (+ new-sequence [(when (or (= (len new-sequence) 0) (!= new-val (get new-sequence -1))) new-val)])))
       new-sequence)))
 
+; eyeballed
 (def note-jump-probabilities [5 5 5 5 5 7 7 7 3 3 3 2 2 4 4 1])
 
 (defn get-good-notes [n]
   ; (random.sample (range 0 12) (+ (max sequence) 1))
   (loop [[c (dec n)] [notes [(random.randint 0 12)]]]
     (if (> c 0)
-      (recur (dec c) (+ notes [(% (+ (get notes -1) (random.choice note-jump-probabilities)) 12)]))
+      (recur
+        (dec c)
+        (+ notes [(% (+ (get notes -1) (random.choice note-jump-probabilities)) 12)]))
       (sorted notes))))
 
 (generate
