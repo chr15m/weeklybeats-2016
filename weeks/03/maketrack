@@ -17,8 +17,8 @@
 (defn get-random-bleep [t]
   (os.path.join samples (random.choice (list-comp f [f (os.listdir samples)] (and (f.startswith "c64") (in (+ "-" t ".wav") f))))))
 
-(defn get-random-808 [n]
-  (os.path.join samples "808" (random.choice (list-comp f [f (os.listdir (os.path.join samples "808"))] (and (f.startswith n) (f.endswith ".wav"))))))
+(defn get-random-sample [subfolder n]
+  (os.path.join samples subfolder (random.choice (list-comp f [f (os.listdir (os.path.join samples subfolder))] (and (f.startswith n) (f.endswith ".wav"))))))
 
 (defn fx [c] (- (ord c) 96))
 
@@ -97,13 +97,11 @@
     (print itf.tempo "BPM")
     (let [[sample-bleep (itf.smp_add (Sample_File :name "bleep" :filename (get-random-bleep "lo")))]
           [sample-bass (itf.smp_add (Sample_KS :name "bass" :freq (/ MIDDLE_C 4) :decay 0.005 :nfrqmul 0.5 :filt0 0.2 :filtn 0.2 :filtf 0.005 :length_sec 0.7))]
-          ;[bassdrums (list-comp (itf.smp_add (Sample_File :name (+ "bassdrum-" (unicode b)) :filename (get-random-808 "bass"))) [b (xrange 3)])]
-          [sample-bassdrum (itf.smp_add (Sample_File :name "808-bassdrum" :filename (get-random-808 "bass")))]
-          ;[snaredrums (list-comp (itf.smp_add (Sample_File :name (+ "snare-" (unicode b)) :filename (get-random-808 "snare"))) [b (xrange 3)])]
-          [sample-snaredrum (itf.smp_add (Sample_File :name "808-snare" :filename (get-random-808 "snare")))]
+          [sample-808-bassdrum (itf.smp_add (Sample_File :name "808-bassdrum" :filename (get-random-sample "808" "bass")))]
+          [sample-808-snaredrum (itf.smp_add (Sample_File :name "808-snare" :filename (get-random-sample "808" "snare")))]
           [sample-break (random.choice ["amen.wav" "think.wav"])]
           [sample-chunks-break (list-comp (itf.smp_add (Sample_FileSlice :filename (os.path.join samples sample-break) :which s)) [s (range 8)])]
-          [samples-hihat (list-comp (itf.smp_add (Sample_File :name (+ "hihat-" (unicode b)) :filename (get-random-808 "hi hat-snappy"))) [b (xrange 3)])]
+          [samples-hihat (list-comp (itf.smp_add (Sample_File :name (+ "hihat-" (unicode b)) :filename (get-random-sample "808" "hi hat-snappy"))) [b (xrange 3)])]
           [samples-sfxrs (dir-to-samples (os.path.join here "samples") itf)]
           ; compute a basic sequence using the fractal melody method
           [sequence (make-fractal-sequence 16 4)]
@@ -116,9 +114,10 @@
           [master-key (if (< (random.random) 0.6) Key_Minor Key_Major)]
           [root (+ 12 (random.randint 50 (+ 50 12 -1)))]
           [strategy (Strategy_Main root master-key 128 32)]]
-      (strategy.gen_add (Generator_ProbabilityTable sample-bassdrum :probability-table bd-prob))
-      (strategy.gen_add (Generator_ProbabilityTable sample-snaredrum :probability-table sd-prob))
+      (strategy.gen_add (Generator_ProbabilityTable sample-808-bassdrum :probability-table bd-prob))
+      (strategy.gen_add (Generator_ProbabilityTable sample-808-snaredrum :probability-table sd-prob))
       (strategy.gen_add (Generator_Callback 1 (make-hats-fn samples-hihat)))
+      
       (strategy.gen_add (Generator_Breaks :s_chunks sample-chunks-break :pitch (+ 59 (int (/ (- itf.tempo 165) 4)))))
       (strategy.gen_add (Generator_Callback 1 (make-melody-fn sample-bleep 72 sequence notes-set 4)))
       (strategy.gen_add (Generator_Callback 1 (make-melody-fn sample-bleep 48 sequence-bass notes-set 8)))
