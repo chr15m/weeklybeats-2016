@@ -110,6 +110,10 @@
   (let [[pivot (random.randint 0 12)]]
     (list-comp (% (+ (* (- n pivot) -1) pivot) 12) [n notes])))
 
+(defn make-section-lookup-fn [section-fns sections-pattern]
+  (fn [channel-number pattern strategy &rest args]
+    (apply (get section-fns (get-wrapped sections-pattern strategy.pat_idx)) (+ [channel-number pattern strategy] (list args)))))
+
 (generate
   sys.argv
   (fn [itf]
@@ -118,24 +122,26 @@
     (let [[sample-hi-bleep (itf.smp_add (Sample_File :name "hi-bleep" :filename (get-random-bleep "hi")))]
           [sample-lo-bleep (itf.smp_add (Sample_File :name "lo-bleep" :filename (get-random-bleep "lo")))]
           [sample-bass (itf.smp_add (Sample_KS :name "bass" :freq (/ MIDDLE_C 4) :decay 0.005 :nfrqmul 0.5 :filt0 0.2 :filtn 0.2 :filtf 0.005 :length_sec 0.7))]
-          ;[bassdrums (list-comp (itf.smp_add (Sample_File :name (+ "bassdrum-" (unicode b)) :filename (get-random-808 "bass"))) [b (xrange 3)])]
-          [sample-808-bassdrum (itf.smp_add (Sample_File :name "808-bassdrum" :filename (get-random-sample "808" "bass")))]
-          ;[snaredrums (list-comp (itf.smp_add (Sample_File :name (+ "snare-" (unicode b)) :filename (get-random-808 "snare"))) [b (xrange 3)])]
-          [sample-808-snaredrum (itf.smp_add (Sample_File :name "808-snare" :filename (get-random-sample "808" "snare")))]
+          ;[sample-808-bassdrum (itf.smp_add (Sample_File :name "808-bassdrum" :filename (get-random-sample "808" "bass")))]
+          ;[sample-808-snaredrum (itf.smp_add (Sample_File :name "808-snare" :filename (get-random-sample "808" "snare")))]
           [sample-bassdrum (itf.smp_add (Sample_File :name "bassdrum" :filename (get-random-sample "CanOfBeats" "bd")))]
           [sample-snaredrum (itf.smp_add (Sample_File :name "snaredrum" :filename (get-random-sample "CanOfBeats" "sd")))]
           [sample-break (random.choice ["amen.wav" "think.wav"])]
           [sample-chunks-break (list-comp (itf.smp_add (Sample_FileSlice :filename (os.path.join samples sample-break) :slices 4 :which s)) [s (range 4)])]
-          [samples-hihat (list-comp (itf.smp_add (Sample_File :name (+ "hihat-" (unicode b)) :filename (get-random-sample "808" "hi hat-snappy"))) [b (xrange 3)])]
+          ;[samples-808-hihat (list-comp (itf.smp_add (Sample_File :name (+ "808-hihat-" (unicode b)) :filename (get-random-sample "808" "hi hat-snappy"))) [b (xrange 3)])]
           [samples-sfxrs (dir-to-samples (os.path.join here "samples") itf)]
-          ; compute a basic sequence using the fractal melody method
+          ; compute a two basic sequences of notes using the fractal melody method
           [sequences (list-comp (make-fractal-sequence (random.choice [16 32]) 4 :sparseness-probability (+ (* (random.random) 0.5) 0.25)) [x (range 2)])]
+          ; bass variation
+          [sequence-bass (slice (list (reversed (get sequences 0))) 0 16)]
           ; select some notes randomly to map to the sequence
           [notes-set (get-good-notes 4)]
           [notes-set-alt (transform-notes notes-set)]
-          ; bass variations
-          [sequence-bass (slice (list (reversed (get sequences 0))) 0 16)]
-          [notes-set-bass (list-comp (+ n 5) [n notes-set])]
+          
+          [melody-fns-main [(make-melody-fn sample-hi-bleep 60 (get sequences 0) notes-set 4 :volume 230)
+                            (make-melody-fn sample-hi-bleep 60 (get sequences 1) notes-set-alt 4 :volume 230)]]
+          [melody-fns-bass [(make-melody-fn sample-lo-bleep 60 sequence-bass notes-set 8)
+                           (make-melody-fn sample-lo-bleep 60 sequence-bass notes-set-alt 8)]]
           [master-key (if (< (random.random) 0.6) Key_Minor Key_Major)]
           [root (+ 12 (random.randint 50 (+ 50 12 -1)))]
           [strategy (Strategy_Main root master-key 128 32)]]
@@ -143,10 +149,9 @@
       ;(strategy.gen_add (Generator_ProbabilityTable sample-808-snaredrum :probability-table sd-prob))
       ;(strategy.gen_add (Generator_Callback 1 (make-hats-fn samples-hihat)))
 
-      (strategy.gen_add (Generator_Callback 2 (make-breaks-fn sample-chunks-break sample-bassdrum sample-snaredrum :break-pitch (+ 59 (int (/ (- itf.tempo 165) 4))))))
-      (strategy.gen_add (Generator_Callback 1 (make-melody-fn sample-hi-bleep 60 (get sequences 0) notes-set 4 :volume 230)))
-      (strategy.gen_add (Generator_Callback 1 (make-melody-fn sample-hi-bleep 60 (get sequences 1) notes-set 8 :volume 230)))
-      (strategy.gen_add (Generator_Callback 1 (make-melody-fn sample-lo-bleep 60 sequence-bass notes-set 8)))
+      ; (strategy.gen_add (Generator_Callback 2 (make-breaks-fn sample-chunks-break sample-bassdrum sample-snaredrum :break-pitch (+ 59 (int (/ (- itf.tempo 165) 4))))))
+      (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-main [0 0 0 0 1 1 1 1])))
+      (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-bass [0 0 0 0 1 1 1 1])))
 
       ;(strategy.gen_add (Generator_Breaks :s_chunks sample-chunks-break :pitch (+ 59 (int (/ (- itf.tempo 165) 4)))))
       ;(strategy.gen_add (Generator_Callback 1 (make-melody-fn sample-bleep 84 sequence-meta-melody notes-set-bass 1)))
