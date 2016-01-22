@@ -1,0 +1,3 @@
+seed: labiodental fricative
+autotracker: 40f059fff42e6884b5ce4f720a00506cb7683f22
+command: ./maketrack "labiodental fricative"
