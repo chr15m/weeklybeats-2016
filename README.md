@@ -1,6 +1,4 @@
-Algorithmic rave music, weeklybeats 2016.
-
-http://weeklybeats.com/ - 2016
+Algorithmic rave music, [weeklybeats 2016](http://weeklybeats.com/#/chr15m/).
 
 Written by this software:
 
