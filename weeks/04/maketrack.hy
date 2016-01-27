@@ -91,7 +91,8 @@
 ; TODO: more kinds of break rhythm
 ; TODO: match breaks with beats?
 ; TODO: techdiff-fx.txt
-(defn make-breaks-fn [sample-chunks-break sample-bassdrum sample-snaredrum &optional [break-pitch 60] [break-pace 4] [beat-pace 4]]
+; TODO: fx.txt
+(defn make-breaks-fn [sample-chunks-break sample-bassdrum sample-snaredrum &optional [break-pitch 60] [break-pace 4] [beat-pace 4] [match-beat true]]
   (let [[bass-snare-rhythm (random.choice [[1 0 2 0  0 1 2 0]
                                            [0 1 2 0  1 0 2 0]
                                            [1 0 0 1  0 0 2 0]
@@ -100,16 +101,26 @@
                                       [0 1 2 0  1 2 3 4  8 9 10 8  9 10 14 15]])]]
     (fn [channel-number pattern strategy rhythm beat-begin beats-length key-root key-chord]
       (for [row (xrange beat-begin (+ beat-begin beats-length))]
-        ; lay down the breakbeat
-        (if (= (% row break-pace) 0)
-        (setv (get (get pattern.data row) channel-number)
-          [break-pitch (get-wrapped sample-chunks-break (get-wrapped break-rhythm (/ row break-pace))) 255 0 0]))
-        ; lay down the back-beat
-        (if (= (% row beat-pace) 0)
-          (let [[which-drum (get-wrapped bass-snare-rhythm (/ row beat-pace))]]
-            (if (> which-drum 0)
-              (setv (get (get pattern.data row) (+ channel-number 1))
-                [60 (get [sample-bassdrum sample-snaredrum] (- which-drum 1)) 255 0 0]))))))))
+        (let [[tick (/ row break-pace)]
+              [break-match (% row break-pace)]]
+          ; lay down the breakbeat
+          (if (= break-match 0)
+            (setv (get (get pattern.data row) channel-number)
+              [break-pitch (get-wrapped sample-chunks-break (get-wrapped break-rhythm tick)) 255 0 0]))
+          ; lay down the back-beat
+          (if match-beat
+            ; backbeat should match the break
+            (if (= break-match 0)
+              (let [[drum-type (get-wrapped [1 0 2 0  0 1 0 2] (get-wrapped break-rhythm tick))]]
+                (when drum-type
+                  (setv (get (get pattern.data row) (+ channel-number 1))
+                    [60 (get [sample-bassdrum sample-snaredrum] (- drum-type 1)) 255 0 0]))))
+            ; backbeat should be original
+            (if (= (% row beat-pace) 0)
+              (let [[which-drum (get-wrapped bass-snare-rhythm (/ row beat-pace))]]
+                (if (> which-drum 0)
+                  (setv (get (get pattern.data row) (+ channel-number 1))
+                    [60 (get [sample-bassdrum sample-snaredrum] (- which-drum 1)) 255 0 0]))))))))))
 
 ; eyeballed
 (def note-jump-probabilities [5 5 5 5 5 7 7 7 3 3 3 6 6 2 2 4 4 1])
