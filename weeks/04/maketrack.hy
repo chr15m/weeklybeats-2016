@@ -13,40 +13,7 @@
 (import [autotracker.strategies [Strategy_Main]])
 (import [autotracker.generators [Generator_Bass Generator_ProbabilityTable Generator_Callback Generator_AmbientMelody Generator_Breaks]])
 
-(def here (os.path.dirname __file__))
-
-(defn get-random-bleep [t]
-  (os.path.join samples (random.choice (list-comp f [f (os.listdir samples)] (and (f.startswith "c64") (in (+ "-" t ".wav") f))))))
-
-(defn get-random-sample [subfolder n]
-  (os.path.join samples subfolder (random.choice (list-comp f [f (os.listdir (os.path.join samples subfolder))] (and (f.startswith n) (f.endswith ".wav"))))))
-
-(defn fx [c] (- (ord c) 96))
-
-(defn get-wrapped [array index]
-  (get array (% (int index) (len array))))
-
-(defn null-pattern-fn [&rest args])
-
-(defn value-or-callable [v &rest args] (if (callable v) (apply v args) v))
-
-; taken from pure-data
-(defn mtof [m]
-  (cond
-    [(<= m -1500) 0]
-    [(> m 1499) (mtof 1499)]
-    [true (* (math.exp (* m .0577622650)) 8.17579891564)]))
-
-; taken from pure-data
-(defn ftom [f]
-  (if (> f 0)
-    (* (math.log (* f .12231220585)) 17.3123405046)
-    -1500))
-
-(defn dir-to-samples [d itf] (list-comp
-                               (itf.smp_add (Sample_File :name (os.path.basename f) :filename (os.path.join d f)))
-                               [f (os.listdir d)]
-                               (f.endswith ".wav")))
+(import [utils [get-random-bleep get-random-sample ftom mtof get-wrapped value-or-callable]])
 
 ; from CanOfBeats
 (def bd-prob [1 0.1 0.9 0.1  0.05 0.1 0.01 0.1  0.8 0.1 0.7 0.1  0.05 0.01 0.01 0.2])
