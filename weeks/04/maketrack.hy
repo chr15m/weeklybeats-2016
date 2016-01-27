@@ -22,9 +22,6 @@
 
 (defn totally-random-prob [] (list-comp (pow (random.random) 2) [p (xrange 16)]))
 
-(defn hat-probability [tick]
-  (get [0.95 0.05 0.1 0.05] (% tick 4)))
-
 (defn set-pattern-value! [pattern channel-number row value]
   (setv (get (get pattern.data row) channel-number) value))
 
@@ -51,18 +48,23 @@
         (get basic-sequence (% (int (/ t (random.choice [1 2 4]))) (len basic-sequence))))
       [t (xrange sequence-length)])))
 
-; TODO: compute trill mask and use it
-(defn make-hats-fn [hat-samples]
-  (let [[trill-mask (list-comp x [x (range 16)])]])
-  (fn [channel-number pattern strategy rhythm beat-begin beats-length key-root key-chord]
-    (for [row (xrange beat-begin (+ beat-begin beats-length))]
-      (let [[prob (hat-probability row)]
-            [sample (if (> (random.random) 0.9) (random.choice hat-samples) (get hat-samples 0))]
-            [pitch 60]
-            [volume (get [255 127 255 127] (% row 4))]]
-        (when (< (random.random) prob)
-          (setv (get (get pattern.data row) channel-number) 
-            [pitch sample volume 0 0]))))))
+(defn make-hats-fn [hat-samples &optional [volume 64] [hat-probability 0.90] [hat-frequency 4] [trill-probability 0.0625]]
+  (let [[pitch-map (dict (list-comp (, h (random.randint 60 72)) [h hat-samples]))]]
+    (fn [channel-number pattern strategy rhythm beat-begin beats-length key-root key-chord]
+      (for [row (xrange beat-begin (+ beat-begin beats-length))]
+        (when (not (% row hat-frequency))
+          (let [[sample (if (> (random.random) 0.9) (random.choice hat-samples) (get hat-samples 0))]
+                [pitch (get pitch-map sample)]]
+            (when (< (random.random) hat-probability)
+              (setv (get (get pattern.data row) channel-number) 
+                [pitch sample (value-or-callable volume row) 0 0])
+              ; hat trill
+              (when (< (random.random) trill-probability)
+                (let [[trill-width (random.choice [1 1 2 2 3])]
+                      [trill-length (random.choice [3 4 6 8])]]
+                  (for [row-trill (xrange row (min (+ row trill-length) (len pattern.data)) trill-width)]
+                    (setv (get (get pattern.data row-trill) channel-number) 
+                      [pitch sample (value-or-callable volume row true) 0 0])))))))))))
 
 (defn make-melody-fn [sample root-note sequence notes-set &optional [pace 4] [volume 255] [note-length None] [octave 0] [note-end-type :cut]]
   (fn [channel-number pattern strategy rhythm beat-begin beats-length key-root key-chord]
@@ -172,7 +174,7 @@
           [notes-sets [notes-set (transform-notes-flip notes-set)]]
           
           [melody-fns-main (list-comp (make-melody-fn sample-hi-bleep 60 (get sequences x) (get notes-sets x) :pace 4 :volume 40) [x (range 2)])]
-          [melody-fns-bass (list-comp (make-melody-fn sample-lo-bleep 60 sequence-bass (get notes-sets x) :pace 8 :note-length 4 :volume 52) [x (range 2)])]
+          [melody-fns-bass (list-comp (make-melody-fn sample-lo-bleep 60 sequence-bass (get notes-sets x) :pace 8 :volume 52) [x (range 2)])]
           [melody-fns-noodler (list-comp (make-melody-fn sample-hi-bleep 72 (get sequences x) (get notes-sets x) :octave (make-octave-noodler-fn) :pace (make-pace-noodler-fn) :volume 40 :note-length 1) [x (range 2)])]
           [master-key (if (< (random.random) 0.6) Key_Minor Key_Major)]
           [root (+ 12 (random.randint 50 (+ 50 12 -1)))]
@@ -184,13 +186,14 @@
 
       (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-noodler [0 0 0 0 1 1 1 1 0 0 1 1])))
 
+      (let [[samples-808-hihat (list-comp (itf.smp_add (Sample_File :name (+ "808-hihat-" (unicode b)) :filename (get-random-sample "808" "hi hat-snappy"))) [b (xrange 3)])]]
+        (strategy.gen_add (Generator_Callback 1 (make-hats-fn samples-808-hihat))))
+      
       ;(let [[sample-808-bassdrum (itf.smp_add (Sample_File :name "808-bassdrum" :filename (get-random-sample "808" "bass")))]
       ;      [sample-808-snaredrum (itf.smp_add (Sample_File :name "808-snare" :filename (get-random-sample "808" "snare")))]
-      ;      ; [samples-808-hihat (list-comp (itf.smp_add (Sample_File :name (+ "808-hihat-" (unicode b)) :filename (get-random-sample "808" "hi hat-snappy"))) [b (xrange 3)])]
       ;      ]
       ;  (strategy.gen_add (Generator_ProbabilityTable sample-808-bassdrum :probability-table bd-prob))
       ;  (strategy.gen_add (Generator_ProbabilityTable sample-808-snaredrum :probability-table sd-prob))
-      ;  ;(strategy.gen_add (Generator_Callback 1 (make-hats-fn samples-808-hihat)))
       ;  )
       
       ;(for [s samples-sfxrs]
