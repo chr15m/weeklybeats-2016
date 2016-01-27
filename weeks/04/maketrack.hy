@@ -16,9 +16,9 @@
 (import [utils [get-random-bleep get-random-sample ftom mtof get-wrapped value-or-callable]])
 
 ; from CanOfBeats
-(def bd-prob [1 0.1 0.9 0.1  0.05 0.1 0.01 0.1  0.8 0.1 0.7 0.1  0.05 0.01 0.01 0.2])
-(def sd-prob [0 0.05 0.05 0.05  0.95 0 0 0.2 0 0.05 0 0  0.95 0 0 0.1])
-(def hh-prob [0.95 0.05 0.95 0.05  0.95 0.1 0.95 0.1   0.95 0.05 0.95 0.05  0.95 0.05 0.95 0.05])
+(def bd-prob [1.00 0.10 0.90 0.10  0.05 0.10 0.01 0.10  0.80 0.10 0.70 0.10  0.05 0.01 0.01 0.20])
+(def sd-prob [0.00 0.05 0.05 0.05  0.95 0.00 0.00 0.20  0.00 0.05 0.00 0.00  0.95 0.00 0.00 0.10])
+(def hh-prob [0.95 0.05 0.95 0.05  0.95 0.10 0.95 0.10  0.95 0.05 0.95 0.05  0.95 0.05 0.95 0.05])
 
 (defn totally-random-prob [] (list-comp (pow (random.random) 2) [p (xrange 16)]))
 
@@ -27,10 +27,6 @@
 
 (defn set-pattern-value! [pattern channel-number row value]
   (setv (get (get pattern.data row) channel-number) value))
-
-; {"hello" 22 "boo" 59}
-;(def weighted-random [weights]
-;  (random.choice (sum (list-comp k [k (range )]) [])))
 
 ; TODO: convert make fns to this
 (defn add-generator [strategy channel-count generator-fn]
