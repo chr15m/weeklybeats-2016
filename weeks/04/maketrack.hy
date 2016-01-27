@@ -64,19 +64,24 @@
           (setv (get (get pattern.data row) channel-number) 
             [pitch sample volume 0 0]))))))
 
-; TODO: specify note length
-(defn make-melody-fn [sample root-note sequence notes-set &optional [pace 4] [volume 255] [octave 0]]
+(defn make-melody-fn [sample root-note sequence notes-set &optional [pace 4] [volume 255] [note-length None] [octave 0] [note-end-type :cut]]
   (fn [channel-number pattern strategy rhythm beat-begin beats-length key-root key-chord]
     ; (print strategy.pat_idx)
     (for [row (xrange beat-begin (+ beat-begin beats-length))]
       (let [[current-pace (value-or-callable pace strategy.pat_idx row)]
+            [current-note-length (or (value-or-callable note-length) current-pace)]
             [current-octave (value-or-callable octave strategy.pat_idx row)]
-            [note (get sequence (% (int (/ row current-pace)) (len sequence)))]]
+            [note (get sequence (% (int (/ row current-pace)) (len sequence)))]
+            [note-end (+ row current-note-length)]]
         (when (and (not (or (= note nil) (= (get notes-set note) nil)))
                 ; if we're on the right row division for this pace
                 (= (% row current-pace) 0))
           (setv (get (get pattern.data row) channel-number)
-            [(+ (get notes-set note) (+ root-note (* 12 current-octave))) sample volume 0 0]))))))
+            [(+ (get notes-set note) (+ root-note (* 12 current-octave))) sample volume 0 0])
+          ; note stop (if inside the pattern)
+          (when (< note-end (len pattern.data))
+            (setv (get (get pattern.data (+ row current-note-length)) channel-number)
+              [(if (= note-end-type :cut) 254 255) 0 127 0 0])))))))
 
 ; TODO: break repeats
 ; TODO: break shift segments
@@ -166,9 +171,9 @@
           [notes-set (get-good-notes 4)]
           [notes-sets [notes-set (transform-notes-flip notes-set)]]
           
-          [melody-fns-main (list-comp (make-melody-fn sample-hi-bleep 60 (get sequences x) (get notes-sets x) 4 :volume 230) [x (range 2)])]
-          [melody-fns-bass (list-comp (make-melody-fn sample-lo-bleep 60 sequence-bass (get notes-sets x) 8) [x (range 2)])]
-          [melody-fns-noodler (list-comp (make-melody-fn sample-hi-bleep 72 (get sequences x) (get notes-sets x) :octave (make-octave-noodler-fn) :pace (make-pace-noodler-fn) :volume 230) [x (range 2)])]
+          [melody-fns-main (list-comp (make-melody-fn sample-hi-bleep 60 (get sequences x) (get notes-sets x) :pace 4 :volume 40) [x (range 2)])]
+          [melody-fns-bass (list-comp (make-melody-fn sample-lo-bleep 60 sequence-bass (get notes-sets x) :pace 8 :note-length 4 :volume 52) [x (range 2)])]
+          [melody-fns-noodler (list-comp (make-melody-fn sample-hi-bleep 72 (get sequences x) (get notes-sets x) :octave (make-octave-noodler-fn) :pace (make-pace-noodler-fn) :volume 40 :note-length 1) [x (range 2)])]
           [master-key (if (< (random.random) 0.6) Key_Minor Key_Major)]
           [root (+ 12 (random.randint 50 (+ 50 12 -1)))]
           [strategy (Strategy_Main root master-key 128 32)]]
