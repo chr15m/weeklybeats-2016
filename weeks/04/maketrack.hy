@@ -108,12 +108,13 @@
 ; TODO: match breaks with beats?
 ; TODO: techdiff-fx.txt
 ; TODO: fx.txt
-(defn make-breaks-fn [sample-chunks-break sample-bassdrum sample-snaredrum &optional [break-pitch 60] [break-pace 4] [beat-pace 4] [match-beat true]]
-  (let [[bass-snare-rhythm (random.choice [[1 0 2 0  0 1 2 0]
+(defn make-breaks-fn [sample-chunks-break sample-bassdrum sample-snaredrum &optional [break-pitch 60] [break-pace 4] [beat-pace 4] [match-beat true] [seed (random.random)]]
+  (let [[r (random.Random seed)]
+        [bass-snare-rhythm (r.choice [[1 0 2 0  0 1 2 0]
                                            [0 1 2 0  1 0 2 0]
                                            [1 0 0 1  0 0 2 0]
                                            [1 0 2 1  0 2 0 0]])]
-        [break-rhythm (random.choice [[0 1 2 3  4 5 6 7  8 9 10 11  12 13 14 15]
+        [break-rhythm (r.choice [[0 1 2 3  4 5 6 7  8 9 10 11  12 13 14 15]
                                       [0 1 2 0  1 2 3 4  8 9 10 8  9 10 13 15]])]]
     (fn [channel-number pattern strategy rhythm beat-begin beats-length key-root key-chord]
       (for [row (xrange beat-begin (+ beat-begin beats-length))]
@@ -137,6 +138,11 @@
                 (if (> which-drum 0)
                   (setv (get (get pattern.data row) (+ channel-number 1))
                     [60 (get [sample-bassdrum sample-snaredrum] (- which-drum 1)) 64 0 0]))))))))))
+
+(defn make-random-placement-fn [sample row]
+  (fn [channel-number pattern strategy rhythm beat-begin beats-length key-root key-chord]
+    (setv (get (get pattern.data row) channel-number)
+      [60 sample 64 0 0])))
 
 ; eyeballed
 (def note-jump-probabilities [5 5 5 5 5 7 7 7 3 3 3 6 6 2 2 4 4 1])
@@ -173,11 +179,6 @@
     (fn [pattern row]
       (get-wrapped noodles (+ (* pattern 128) row)))))
 
-(defn make-random-placement-fn [sample row]
-  (fn [channel-number pattern strategy rhythm beat-begin beats-length key-root key-chord]
-    (setv (get (get pattern.data row) channel-number)
-      [60 sample 64 0 0])))
-
 ; TODO: procedural vocals
 
 (generate
@@ -211,11 +212,12 @@
           [melody-fns-main (list-comp (make-melody-fn sample-hi-bleep 60 (get sequences x) (get notes-sets x) :pace 4 :volume 40) [x (range 2)])]
           [melody-fns-bass (list-comp (make-melody-fn sample-lo-bleep 60 sequence-bass (get notes-sets x) :pace 8 :volume 52) [x (range 2)])]
           [melody-fns-noodler (list-comp (make-melody-fn sample-hi-bleep 72 (get sequences x) (get notes-sets x) :octave (make-octave-noodler-fn) :pace (make-pace-noodler-fn) :volume 40 :note-length 1) [x (range 2)])]
+          [breaks-fns (list-comp (make-breaks-fn sample-chunks-break sample-bassdrum sample-snaredrum :break-pitch (int (math.floor break-note)) :seed (random.random)) [x (range 3)])]
           [master-key (if (< (random.random) 0.6) Key_Minor Key_Major)]
           [root (+ 12 (random.randint 50 (+ 50 12 -1)))]
           [strategy (Strategy_Main root master-key 128 32)]]
       
-      (strategy.gen_add (Generator_Callback 2 (make-breaks-fn sample-chunks-break sample-bassdrum sample-snaredrum :break-pitch (int (math.floor break-note)))))
+      (strategy.gen_add (Generator_Callback 2 (make-section-lookup-fn breaks-fns [0 0 0 0 1 1 1 1 2 2 2 2])))
       (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-main [0 0 0 0 1 1 1 1 0 0 1 1])))
       (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-bass [0 0 0 0 1 1 1 1 0 0 1 1])))
 
@@ -244,7 +246,7 @@
       
       (for [s samples-weirdos]
         (strategy.gen_add (Generator_Callback 1 (make-random-placement-fn s (* (random.randint 0 15) 8)))))
-
+      
       (for [i (xrange 24)]
         (print "pattern" i)
         (itf.ord_add (itf.pat_add (strategy.get_pattern))))
