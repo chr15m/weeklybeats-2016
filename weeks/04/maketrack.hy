@@ -3,7 +3,10 @@
 (import os)
 (import sys)
 (import math)
+(import json)
 (import random)
+(import [glob [glob]])
+(import [subprocess [Popen PIPE]])
 
 (require hy.contrib.loop)
 
@@ -14,6 +17,8 @@
 (import [autotracker.generators [Generator_Bass Generator_ProbabilityTable Generator_Callback Generator_AmbientMelody Generator_Breaks]])
 
 (import [utils [get-random-bleep get-random-sample ftom mtof get-wrapped value-or-callable]])
+
+(import [chipvolver [load_definitions reproduce]])
 
 ; from CanOfBeats
 (def bd-prob [1.00 0.10 0.90 0.10  0.05 0.10 0.01 0.10  0.80 0.10 0.70 0.10  0.05 0.01 0.01 0.20])
@@ -202,6 +207,13 @@
       (let [[samples-808-hihat (list-comp (itf.smp_add (Sample_File :name (+ "808-hihat-" (unicode b)) :filename (get-random-sample "808" "hi hat-snappy"))) [b (xrange 3)])]]
         (strategy.gen_add (Generator_Callback 1 (make-hats-fn samples-808-hihat))))
       
+      (let [[seed (random.random)]
+            [[snare-sample-evolved-definition seed-used] (reproduce (load_definitions (glob "./sfxr-drums/snare*.sfxr.json")) :seed (random.random))]
+            [snare-file-wav "samples/snare-evolved.wav"]
+            [sfxr (.communicate (Popen ["./jsfxr/sfxr-to-wav" snare-file-wav] :stdout PIPE :stdin PIPE) (json.dumps snare-sample-evolved-definition))]
+            [sample-snaredrum-evolved (itf.smp_add (Sample_File :name "snare-evolved" :filename snare-file-wav))]]
+        (strategy.gen_add (Generator_ProbabilityTable sample-snaredrum-evolved :probability-table sd-prob)))
+
       ;(let [[sample-808-bassdrum (itf.smp_add (Sample_File :name "808-bassdrum" :filename (get-random-sample "808" "bass")))]
       ;      [sample-808-snaredrum (itf.smp_add (Sample_File :name "808-snare" :filename (get-random-sample "808" "snare")))]
       ;      ]
