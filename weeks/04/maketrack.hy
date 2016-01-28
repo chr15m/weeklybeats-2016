@@ -82,7 +82,7 @@
                     (setv (get (get pattern.data row-trill) channel-number) 
                       [pitch sample (value-or-callable volume row true) 0 0])))))))))))
 
-(defn make-melody-fn [sample root-note sequence notes-set &optional [pace 4] [volume 255] [note-length None] [octave 0] [note-end-type :cut]]
+(defn make-melody-fn [sample root-note sequence notes-set &optional [pace 4] [volume 64] [note-length None] [octave 0] [note-end-type :cut]]
   (fn [channel-number pattern strategy rhythm beat-begin beats-length key-root key-chord]
     ; (print strategy.pat_idx)
     (for [row (xrange beat-begin (+ beat-begin beats-length))]
@@ -122,7 +122,7 @@
           ; lay down the breakbeat
           (if (= break-match 0)
             (setv (get (get pattern.data row) channel-number)
-              [break-pitch (get-wrapped sample-chunks-break (get-wrapped break-rhythm tick)) 255 0 0]))
+              [break-pitch (get-wrapped sample-chunks-break (get-wrapped break-rhythm tick)) 64 0 0]))
           ; lay down the back-beat
           (if match-beat
             ; backbeat should match the break
@@ -130,13 +130,13 @@
               (let [[drum-type (get-wrapped breakbeat-pattern (get-wrapped break-rhythm tick))]]
                 (when drum-type
                   (setv (get (get pattern.data row) (+ channel-number 1))
-                    [60 (get [sample-bassdrum sample-snaredrum] (- drum-type 1)) 255 0 0]))))
+                    [60 (get [sample-bassdrum sample-snaredrum] (- drum-type 1)) 64 0 0]))))
             ; backbeat should be original
             (if (= (% row beat-pace) 0)
               (let [[which-drum (get-wrapped bass-snare-rhythm (/ row beat-pace))]]
                 (if (> which-drum 0)
                   (setv (get (get pattern.data row) (+ channel-number 1))
-                    [60 (get [sample-bassdrum sample-snaredrum] (- which-drum 1)) 255 0 0]))))))))))
+                    [60 (get [sample-bassdrum sample-snaredrum] (- which-drum 1)) 64 0 0]))))))))))
 
 ; eyeballed
 (def note-jump-probabilities [5 5 5 5 5 7 7 7 3 3 3 6 6 2 2 4 4 1])
@@ -173,6 +173,11 @@
     (fn [pattern row]
       (get-wrapped noodles (+ (* pattern 128) row)))))
 
+(defn make-random-placement-fn [sample row]
+  (fn [channel-number pattern strategy rhythm beat-begin beats-length key-root key-chord]
+    (setv (get (get pattern.data row) channel-number)
+      [60 sample 64 0 0])))
+
 ; TODO: procedural vocals
 
 (generate
@@ -194,6 +199,7 @@
           [length-beat (int (* 44100 (/ 60.0 itf.tempo)))]
           [break-note (ftom (* (mtof 60) (/ length-break-chunk length-beat) (/ break-chunk-count 4)))]
           ; [samples-sfxrs (dir-to-samples (os.path.join here "samples") itf)]
+          [samples-weirdos (list-comp (itf.smp_add (Sample_File :name (+ "weird-" (str s)) :filename (sfxr-genetics "./sfxrs/" (+ "weird-" (str s))))) [s (range 3)])]
           ; compute a two basic sequences of notes using the fractal melody method
           [sequences (list-comp (make-fractal-note-sequence (random.choice [16 32]) 4 :sparseness-probability (+ (* (random.random) 0.5) 0.25)) [x (range 2)])]
           ; bass variation
@@ -236,6 +242,9 @@
       ;(for [s samples-sfxrs]
       ;  (strategy.gen_add (Generator_ProbabilityTable s :probability-table (random.choice [(totally-random-prob) bd-prob sd-prob]))))
       
+      (for [s samples-weirdos]
+        (strategy.gen_add (Generator_Callback 1 (make-random-placement-fn s (* (random.randint 0 15) 8)))))
+
       (for [i (xrange 24)]
         (print "pattern" i)
         (itf.ord_add (itf.pat_add (strategy.get_pattern))))
