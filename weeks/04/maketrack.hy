@@ -29,6 +29,15 @@
 
 (def breakbeat-pattern [1 0 2 0  0 0 2 0])
 
+(defn sfxr-render [definition filename]
+  (.communicate (Popen ["./jsfxr/sfxr-to-wav" filename] :stdout PIPE :stdin PIPE) (json.dumps definition)))
+
+(defn sfxr-genetics [startswith name]
+  (let [[[sample-evolved-definition seed-used] (reproduce (load_definitions (glob (+ startswith "*.sfxr.json"))) :seed (random.random))]
+        [wav-file-name (+ "samples/" name "-evolved.wav")]
+        [sfxr-call (sfxr-render sample-evolved-definition wav-file-name)]]
+    wav-file-name))
+
 (defn set-pattern-value! [pattern channel-number row value]
   (setv (get (get pattern.data row) channel-number) value))
 
@@ -174,8 +183,10 @@
     (let [[sample-hi-bleep (itf.smp_add (Sample_File :name "hi-bleep" :filename (get-random-bleep "hi") :loop "sustain"))]
           [sample-lo-bleep (itf.smp_add (Sample_File :name "lo-bleep" :filename (get-random-bleep "lo") :loop "sustain"))]
           [sample-bass (itf.smp_add (Sample_KS :name "bass" :freq (/ MIDDLE_C 4) :decay 0.005 :nfrqmul 0.5 :filt0 0.2 :filtn 0.2 :filtf 0.005 :length_sec 0.7))]
-          [sample-bassdrum (itf.smp_add (Sample_File :name "bassdrum" :filename (get-random-sample "CanOfBeats" "bd")))]
-          [sample-snaredrum (itf.smp_add (Sample_File :name "snaredrum" :filename (get-random-sample "CanOfBeats" "sd")))]
+          ; [sample-bassdrum (itf.smp_add (Sample_File :name "bassdrum" :filename (get-random-sample "CanOfBeats" "bd")))]
+          [sample-bassdrum (itf.smp_add (Sample_File :name "bassdrum-evolved" :filename (sfxr-genetics "./sfxr-drums/bassdrum" "bassdrum")))]
+          ; [sample-snaredrum (itf.smp_add (Sample_File :name "snaredrum" :filename (get-random-sample "CanOfBeats" "sd")))]
+          [sample-snaredrum (itf.smp_add (Sample_File :name "snaredrum-evolved" :filename (sfxr-genetics "./sfxr-drums/snare" "snaredrum")))]
           [sample-break (random.choice ["amen.wav" "think.wav"])]
           [break-chunk-count 8]
           [sample-chunks-break (list-comp (itf.smp_add (Sample_FileSlice :filename (os.path.join samples sample-break) :slices break-chunk-count :which s)) [s (range break-chunk-count)])]
@@ -207,13 +218,14 @@
       (let [[samples-808-hihat (list-comp (itf.smp_add (Sample_File :name (+ "808-hihat-" (unicode b)) :filename (get-random-sample "808" "hi hat-snappy"))) [b (xrange 3)])]]
         (strategy.gen_add (Generator_Callback 1 (make-hats-fn samples-808-hihat))))
       
-      (let [[seed (random.random)]
-            [[snare-sample-evolved-definition seed-used] (reproduce (load_definitions (glob "./sfxr-drums/snare*.sfxr.json")) :seed (random.random))]
-            [snare-file-wav "samples/snare-evolved.wav"]
-            [sfxr (.communicate (Popen ["./jsfxr/sfxr-to-wav" snare-file-wav] :stdout PIPE :stdin PIPE) (json.dumps snare-sample-evolved-definition))]
-            [sample-snaredrum-evolved (itf.smp_add (Sample_File :name "snare-evolved" :filename snare-file-wav))]]
-        (strategy.gen_add (Generator_ProbabilityTable sample-snaredrum-evolved :probability-table sd-prob)))
+      ;(let [[snare-file-wav (sfxr-genetics "./sfxr-drums/snare" "snare")]
+            ;[sample-evolved (itf.smp_add (Sample_File :name "snare-evolved" :filename snare-file-wav))]]
+        ;(strategy.gen_add (Generator_ProbabilityTable sample-evolved :probability-table sd-prob)))
 
+      ;(let [[bassdrum-file-wav (sfxr-genetics "./sfxr-drums/bassdrum" "bassdrum")]
+            ;[sample-evolved (itf.smp_add (Sample_File :name "bassdrum-evolved" :filename bassdrum-file-wav))]]
+        ;(strategy.gen_add (Generator_ProbabilityTable sample-evolved :probability-table bd-prob)))
+      
       ;(let [[sample-808-bassdrum (itf.smp_add (Sample_File :name "808-bassdrum" :filename (get-random-sample "808" "bass")))]
       ;      [sample-808-snaredrum (itf.smp_add (Sample_File :name "808-snare" :filename (get-random-sample "808" "snare")))]
       ;      ]
