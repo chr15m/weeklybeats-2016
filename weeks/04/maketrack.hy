@@ -22,6 +22,8 @@
 
 (defn totally-random-prob [] (list-comp (pow (random.random) 2) [p (xrange 16)]))
 
+(def breakbeat-pattern [1 0 2 0  0 0 2 0])
+
 (defn set-pattern-value! [pattern channel-number row value]
   (setv (get (get pattern.data row) channel-number) value))
 
@@ -98,7 +100,7 @@
                                            [1 0 0 1  0 0 2 0]
                                            [1 0 2 1  0 2 0 0]])]
         [break-rhythm (random.choice [[0 1 2 3  4 5 6 7  8 9 10 11  12 13 14 15]
-                                      [0 1 2 0  1 2 3 4  8 9 10 8  9 10 14 15]])]]
+                                      [0 1 2 0  1 2 3 4  8 9 10 8  9 10 13 15]])]]
     (fn [channel-number pattern strategy rhythm beat-begin beats-length key-root key-chord]
       (for [row (xrange beat-begin (+ beat-begin beats-length))]
         (let [[tick (/ row break-pace)]
@@ -111,7 +113,7 @@
           (if match-beat
             ; backbeat should match the break
             (if (= break-match 0)
-              (let [[drum-type (get-wrapped [1 0 2 0  0 1 0 2] (get-wrapped break-rhythm tick))]]
+              (let [[drum-type (get-wrapped breakbeat-pattern (get-wrapped break-rhythm tick))]]
                 (when drum-type
                   (setv (get (get pattern.data row) (+ channel-number 1))
                     [60 (get [sample-bassdrum sample-snaredrum] (- drum-type 1)) 255 0 0]))))
