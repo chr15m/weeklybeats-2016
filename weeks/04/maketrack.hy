@@ -198,9 +198,11 @@
           [sample-bass-secondary (itf.smp_add (random.choice [(Sample_KS :name "synth-bass" :freq (/ MIDDLE_C 4) :decay 0.005 :nfrqmul 0.5 :filt0 0.2 :filtn 0.2 :filtf 0.005 :length_sec 0.7)
                                                               (Sample_File :name "sfxr-evolved-bass" :filename (sfxr-genetics "./sfxr-bass/" "sfxr-evolved-bass"))]))]
           ; [sample-bassdrum (itf.smp_add (Sample_File :name "bassdrum" :filename (get-random-sample "CanOfBeats" "bd")))]
-          [sample-bassdrum (itf.smp_add (Sample_File :name "bassdrum-evolved" :filename (sfxr-genetics "./sfxr-drums/bassdrum" "bassdrum")))]
+          ;[sample-bassdrum (itf.smp_add (Sample_File :name "bassdrum-evolved" :filename (sfxr-genetics "./sfxr-drums/bassdrum" "bassdrum")))]
           ; [sample-snaredrum (itf.smp_add (Sample_File :name "snaredrum" :filename (get-random-sample "CanOfBeats" "sd")))]
-          [sample-snaredrum (itf.smp_add (Sample_File :name "snaredrum-evolved" :filename (sfxr-genetics "./sfxr-drums/snare" "snaredrum")))]
+          ;[sample-snaredrum (itf.smp_add (Sample_File :name "snaredrum-evolved" :filename (sfxr-genetics "./sfxr-drums/snare" "snaredrum")))]
+          [samples-drums (sum (list-comp [(itf.smp_add (Sample_File :name (% "bassdrum-evolved-%d" x) :filename (sfxr-genetics "./sfxr-drums/bassdrum" (% "bassdrum-%d" x))))
+                                          (itf.smp_add (Sample_File :name (% "snaredrum-evolved-%d" x) :filename (sfxr-genetics "./sfxr-drums/snare" (% "snaredrum-%d" x))))] [x (range 2)]) [])]
           [sample-break (random.choice ["amen.wav" "think.wav"])]
           [break-chunk-count 8]
           [sample-chunks-break (list-comp (itf.smp_add (Sample_FileSlice :filename (os.path.join samples sample-break) :slices break-chunk-count :which s)) [s (range break-chunk-count)])]
@@ -221,7 +223,7 @@
           [melody-fns-bass (list-comp (make-melody-fn sample-bass 60 sequence-bass (get notes-sets x) :pace 8 :volume 64) [x (range 2)])]
           [melody-fns-bass-secondary (list-comp (make-melody-fn sample-bass-secondary 60 (list (reversed sequence-bass)) (get notes-sets x) :pace 8 :volume 64) [x (range 2)])]
           [melody-fns-noodler (list-comp (make-melody-fn sample-hi-bleep 72 (get sequences x) (get notes-sets x) :octave (make-octave-noodler-fn) :pace (make-pace-noodler-fn) :volume 40 :note-length 1) [x (range 2)])]
-          [breaks-fns (list-comp (make-breaks-fn sample-chunks-break sample-bassdrum sample-snaredrum :break-pitch (int (math.floor break-note)) :seed (random.random)) [x (range 3)])]
+          [breaks-fns (list-comp (make-breaks-fn sample-chunks-break (get-wrapped samples-drums (* x 2)) (get-wrapped samples-drums (+ (* x 2) 1))  :break-pitch (int (math.floor break-note)) :seed (random.random)) [x (range 3)])]
           [weirdos-fns (list-comp (make-random-placement-fn (slice samples-weirdos x (+ x 3)) :volume 48 :seed (random.random)) [x (range 3)])]
           
           [master-key (if (< (random.random) 0.6) Key_Minor Key_Major)]
