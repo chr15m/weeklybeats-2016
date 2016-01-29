@@ -190,8 +190,9 @@
     (setv itf.tempo (random.randint 175 185))
     (print itf.tempo "BPM")
     (let [[sample-hi-bleep (itf.smp_add (Sample_File :name "hi-bleep" :filename (get-random-bleep "hi") :loop "sustain"))]
-          [sample-lo-bleep (itf.smp_add (Sample_File :name "lo-bleep" :filename (get-random-bleep "lo") :loop "sustain"))]
-          [sample-bass (itf.smp_add (Sample_KS :name "bass" :freq (/ MIDDLE_C 4) :decay 0.005 :nfrqmul 0.5 :filt0 0.2 :filtn 0.2 :filtf 0.005 :length_sec 0.7))]
+          [sample-bass (itf.smp_add (Sample_File :name "lo-bleep" :filename (get-random-bleep "lo") :loop "sustain"))]
+          [sample-bass-secondary (itf.smp_add (random.choice [(Sample_KS :name "synth-bass" :freq (/ MIDDLE_C 4) :decay 0.005 :nfrqmul 0.5 :filt0 0.2 :filtn 0.2 :filtf 0.005 :length_sec 0.7)
+                                                              (Sample_File :name "sfxr-evolved-bass" :filename (sfxr-genetics "./sfxr-bass/" "sfxr-evolved-bass"))]))]
           ; [sample-bassdrum (itf.smp_add (Sample_File :name "bassdrum" :filename (get-random-sample "CanOfBeats" "bd")))]
           [sample-bassdrum (itf.smp_add (Sample_File :name "bassdrum-evolved" :filename (sfxr-genetics "./sfxr-drums/bassdrum" "bassdrum")))]
           ; [sample-snaredrum (itf.smp_add (Sample_File :name "snaredrum" :filename (get-random-sample "CanOfBeats" "sd")))]
@@ -213,7 +214,8 @@
           [notes-sets [notes-set (transform-notes-flip notes-set)]]
           
           [melody-fns-main (list-comp (make-melody-fn sample-hi-bleep 60 (get sequences x) (get notes-sets x) :pace 4 :volume 40) [x (range 2)])]
-          [melody-fns-bass (list-comp (make-melody-fn sample-lo-bleep 60 sequence-bass (get notes-sets x) :pace 8 :volume 52) [x (range 2)])]
+          [melody-fns-bass (list-comp (make-melody-fn sample-bass 60 sequence-bass (get notes-sets x) :pace 8 :volume 64) [x (range 2)])]
+          [melody-fns-bass-secondary (list-comp (make-melody-fn sample-bass-secondary 60 (list (reversed sequence-bass)) (get notes-sets x) :pace 8 :volume 64) [x (range 2)])]
           [melody-fns-noodler (list-comp (make-melody-fn sample-hi-bleep 72 (get sequences x) (get notes-sets x) :octave (make-octave-noodler-fn) :pace (make-pace-noodler-fn) :volume 40 :note-length 1) [x (range 2)])]
           [breaks-fns (list-comp (make-breaks-fn sample-chunks-break sample-bassdrum sample-snaredrum :break-pitch (int (math.floor break-note)) :seed (random.random)) [x (range 3)])]
           [weirdos-fns (list-comp (make-random-placement-fn (slice samples-weirdos x (+ x 3)) :volume 48 :seed (random.random)) [x (range 3)])]
@@ -225,30 +227,31 @@
       (strategy.gen_add (Generator_Callback 2 (make-section-lookup-fn breaks-fns [0 0 0 0 1 1 1 1 2 2 2 2])))
       (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-main [0 0 0 0 1 1 1 1 0 0 1 1])))
       (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-bass [0 0 0 0 1 1 1 1 0 0 1 1])))
+      (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-bass-secondary [0 0 0 0 1 1 1 1 0 0 1 1])))
       (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-noodler [0 0 0 0 1 1 1 1 0 0 1 1])))
       (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn weirdos-fns [0 0 0 0 1 1 1 1 2 2 2 2])))
-      
+
       (let [[samples-808-hihat (list-comp (itf.smp_add (Sample_File :name (+ "808-hihat-" (unicode b)) :filename (get-random-sample "808" "hi hat-snappy"))) [b (xrange 3)])]]
         (strategy.gen_add (Generator_Callback 1 (make-hats-fn samples-808-hihat))))
-      
+
       ;(let [[snare-file-wav (sfxr-genetics "./sfxr-drums/snare" "snare")]
-            ;[sample-evolved (itf.smp_add (Sample_File :name "snare-evolved" :filename snare-file-wav))]]
-        ;(strategy.gen_add (Generator_ProbabilityTable sample-evolved :probability-table sd-prob)))
+      ;[sample-evolved (itf.smp_add (Sample_File :name "snare-evolved" :filename snare-file-wav))]]
+      ;(strategy.gen_add (Generator_ProbabilityTable sample-evolved :probability-table sd-prob)))
 
       ;(let [[bassdrum-file-wav (sfxr-genetics "./sfxr-drums/bassdrum" "bassdrum")]
-            ;[sample-evolved (itf.smp_add (Sample_File :name "bassdrum-evolved" :filename bassdrum-file-wav))]]
-        ;(strategy.gen_add (Generator_ProbabilityTable sample-evolved :probability-table bd-prob)))
-      
+      ;[sample-evolved (itf.smp_add (Sample_File :name "bassdrum-evolved" :filename bassdrum-file-wav))]]
+      ;(strategy.gen_add (Generator_ProbabilityTable sample-evolved :probability-table bd-prob)))
+
       ;(let [[sample-808-bassdrum (itf.smp_add (Sample_File :name "808-bassdrum" :filename (get-random-sample "808" "bass")))]
       ;      [sample-808-snaredrum (itf.smp_add (Sample_File :name "808-snare" :filename (get-random-sample "808" "snare")))]
       ;      ]
       ;  (strategy.gen_add (Generator_ProbabilityTable sample-808-bassdrum :probability-table bd-prob))
       ;  (strategy.gen_add (Generator_ProbabilityTable sample-808-snaredrum :probability-table sd-prob))
       ;  )
-      
+
       ;(for [s samples-sfxrs]
       ;  (strategy.gen_add (Generator_ProbabilityTable s :probability-table (random.choice [(totally-random-prob) bd-prob sd-prob]))))
-      
+
       (for [i (xrange 24)]
         (print "pattern" i)
         (itf.ord_add (itf.pat_add (strategy.get_pattern))))
