@@ -140,11 +140,15 @@
                     [60 (get [sample-bassdrum sample-snaredrum] (- which-drum 1)) 64 0 0]))))))))))
 
 (defn make-random-placement-fn [sample-set &optional [seed (random.random)] [volume 64]]
-  (let [[r (random.Random seed)]]
+  (let [[r (random.Random seed)]
+        [positions (list-comp (random.randint 0 16) [x (range 16)])]
+        [chances (list-comp (random.random) [x (range 16)])]]
     (fn [channel-number pattern strategy rhythm beat-begin beats-length key-root key-chord]
-      (when (< (r.random) 0.75)
-        (setv (get (get pattern.data (* (int (/ (random.randint beat-begin (- (+ beat-begin beats-length) 1)) 8)) 8)) channel-number)
-          [60 (get-wrapped sample-set (int (/ beat-begin (/ (len pattern.data) 4)))) volume 0 0])))))
+      (when (< (get-wrapped chances (/ beat-begin beats-length)) 0.75)
+        (let [[row (+ beat-begin (% (* (get-wrapped positions (/ beat-begin beats-length)) 4) beats-length))]
+              [sample (get-wrapped sample-set (int (/ beat-begin beats-length)))]]
+          (setv (get (get pattern.data row) channel-number)
+            [60 sample volume 0 0]))))))
 
 ; eyeballed
 (def note-jump-probabilities [5 5 5 5 5 7 7 7 3 3 3 6 6 2 2 4 4 1])
