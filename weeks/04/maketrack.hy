@@ -258,7 +258,7 @@
       ;(for [s samples-sfxrs]
       ;  (strategy.gen_add (Generator_ProbabilityTable s :probability-table (random.choice [(totally-random-prob) bd-prob sd-prob]))))
 
-      (for [i (xrange 24)]
+      (for [i (xrange 28)]
         (print "pattern" i)
         (itf.ord_add (itf.pat_add (strategy.get_pattern))))
       itf)))
