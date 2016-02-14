@@ -16,7 +16,7 @@
 (import [autotracker.strategies [Strategy_Main]])
 (import [autotracker.generators [Generator_Bass Generator_ProbabilityTable Generator_Callback Generator_AmbientMelody Generator_Breaks]])
 
-(import [utils [get-random-bleep get-random-sample ftom mtof get-wrapped value-or-callable]])
+(import [utils [get-random-bleep get-random-sample ftom mtof get-wrapped value-or-callable dir-to-samples here]])
 
 (import [chipvolver [load_definitions reproduce]])
 
@@ -139,16 +139,17 @@
                   (setv (get (get pattern.data row) (+ channel-number 1))
                     [60 (get [sample-bassdrum sample-snaredrum] (- which-drum 1)) 64 0 0]))))))))))
 
-(defn make-random-placement-fn [sample-set &optional [seed (random.random)] [volume 64]]
+(defn make-random-placement-fn [sample-set &optional [seed (random.random)] [volume 64] [probability 0.75] [number-per-pattern-segment 1]]
   (let [[r (random.Random seed)]
         [positions (list-comp (random.randint 0 16) [x (range 16)])]
         [chances (list-comp (random.random) [x (range 16)])]]
     (fn [channel-number pattern strategy rhythm beat-begin beats-length key-root key-chord]
-      (when (< (get-wrapped chances (/ beat-begin beats-length)) 0.75)
-        (let [[row (+ beat-begin (% (* (get-wrapped positions (/ beat-begin beats-length)) 4) beats-length))]
-              [sample (get-wrapped sample-set (int (/ beat-begin beats-length)))]]
-          (setv (get (get pattern.data row) channel-number)
-            [60 sample volume 0 0]))))))
+      (for [n (range number-per-pattern-segment)]
+        (when (< (get-wrapped chances (/ beat-begin beats-length)) probability)
+          (let [[row (+ beat-begin (% (* (get-wrapped positions (/ beat-begin beats-length)) 4) beats-length))]
+                [sample (get-wrapped sample-set (int (/ beat-begin beats-length)))]]
+            (setv (get (get pattern.data row) channel-number)
+              [60 sample volume 0 0])))))))
 
 ; eyeballed
 (def note-jump-probabilities [5 5 5 5 5 7 7 7 3 3 3 6 6 2 2 4 4 1])
@@ -185,7 +186,6 @@
     (fn [pattern row]
       (get-wrapped noodles (+ (* pattern 128) row)))))
 
-; TODO: chip-bass
 ; TODO: procedural vocals
 
 (generate
@@ -209,8 +209,8 @@
           [length-break-chunk (len (getattr (get itf.smplist (- (get sample-chunks-break 0) 1)) "data"))]
           [length-beat (int (* 44100 (/ 60.0 itf.tempo)))]
           [break-note (ftom (* (mtof 60) (/ length-break-chunk length-beat) (/ break-chunk-count 4)))]
-          ; [samples-sfxrs (dir-to-samples (os.path.join here "samples") itf)]
-          [samples-weirdos (list-comp (itf.smp_add (Sample_File :name (+ "weird-" (str s)) :filename (sfxr-genetics "./sfxrs/" (+ "weird-" (str s))))) [s (range 9)])]
+          ; [samples-weirdos (dir-to-samples (os.path.join here "samples") itf)]
+          [samples-weirdos (list-comp (itf.smp_add (Sample_File :name (+ "weird-" (first (.split s "."))) :filename (sfxr-genetics (+ "./sfxrs/" (first (.split s "."))) (+ "weird-" (first (.split s ".")))))) [s (os.listdir "sfxrs")])]
           ; compute a two basic sequences of notes using the fractal melody method
           [sequences (list-comp (make-fractal-note-sequence (random.choice [16 32]) 4 :sparseness-probability (+ (* (random.random) 0.5) 0.25)) [x (range 2)])]
           ; bass variation
@@ -224,24 +224,18 @@
           [melody-fns-bass-secondary (list-comp (make-melody-fn sample-bass-secondary 60 (list (reversed sequence-bass)) (get notes-sets x) :pace 8 :volume 64) [x (range 2)])]
           [melody-fns-noodler (list-comp (make-melody-fn sample-hi-bleep 72 (get sequences x) (get notes-sets x) :octave (make-octave-noodler-fn) :pace (make-pace-noodler-fn) :volume 40 :note-length 1) [x (range 2)])]
           [breaks-fns (list-comp (make-breaks-fn sample-chunks-break (get-wrapped samples-drums (* x 2)) (get-wrapped samples-drums (+ (* x 2) 1))  :break-pitch (int (math.floor break-note)) :seed (random.random)) [x (range 3)])]
-          [weirdos-fns (list-comp (make-random-placement-fn (slice samples-weirdos x (+ x 3)) :volume 48 :seed (random.random)) [x (range 3)])]
+          [weirdos-fns (list-comp (make-random-placement-fn (slice samples-weirdos x (+ x 3)) :volume 48 :seed (random.random) :number-per-pattern-segment 2 :probability 0.9) [x (range 3)])]  
           
           [master-key (if (< (random.random) 0.6) Key_Minor Key_Major)]
           [root (+ 12 (random.randint 50 (+ 50 12 -1)))]
           [strategy (Strategy_Main root master-key 128 32)]]
       
-      (strategy.gen_add (Generator_Callback 2 (make-section-lookup-fn breaks-fns [0 1])))
-      (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-main [0 1])))
-      (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-bass [0 1])))
-      (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-bass-secondary [0 1])))
-      (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn weirdos-fns [0 1])))
-
-      ;(strategy.gen_add (Generator_Callback 2 (make-section-lookup-fn breaks-fns [0 0 0 0 1 1 1 1 2 2 2 2])))
-      ;(strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-main [0 0 0 0 1 1 1 1 0 0 1 1])))
-      ;(strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-bass [0 0 0 0 1 1 1 1 0 0 1 1])))
-      ;(strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-bass-secondary [0 0 0 0 1 1 1 1 0 0 1 1])))
-      ;(strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-noodler [0 0 0 0 1 1 1 1 0 0 1 1])))
-      ;(strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn weirdos-fns [0 0 0 0 1 1 1 1 2 2 2 2])))
+      (strategy.gen_add (Generator_Callback 2 (make-section-lookup-fn breaks-fns [0 0 0 0 1 1 1 1 2 2 2 2])))
+      (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-main [0 0 0 0 1 1 1 1 0 0 1 1])))
+      (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-bass [0 0 0 0 1 1 1 1 0 0 1 1])))
+      (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-bass-secondary [0 0 0 0 1 1 1 1 0 0 1 1])))
+      (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn melody-fns-noodler [0 0 0 0 1 1 1 1 0 0 1 1])))
+      (strategy.gen_add (Generator_Callback 1 (make-section-lookup-fn weirdos-fns [0 0 0 0 1 1 1 1 2 2 2 2])))
 
       (let [[samples-808-hihat (list-comp (itf.smp_add (Sample_File :name (+ "808-hihat-" (unicode b)) :filename (get-random-sample "808" "hi hat-snappy"))) [b (xrange 3)])]]
         (strategy.gen_add (Generator_Callback 1 (make-hats-fn samples-808-hihat))))
@@ -254,17 +248,15 @@
       ;[sample-evolved (itf.smp_add (Sample_File :name "bassdrum-evolved" :filename bassdrum-file-wav))]]
       ;(strategy.gen_add (Generator_ProbabilityTable sample-evolved :probability-table bd-prob)))
 
-      ;(let [[sample-808-bassdrum (itf.smp_add (Sample_File :name "808-bassdrum" :filename (get-random-sample "808" "bass")))]
-      ;      [sample-808-snaredrum (itf.smp_add (Sample_File :name "808-snare" :filename (get-random-sample "808" "snare")))]
-      ;      ]
-      ;  (strategy.gen_add (Generator_ProbabilityTable sample-808-bassdrum :probability-table bd-prob))
-      ;  (strategy.gen_add (Generator_ProbabilityTable sample-808-snaredrum :probability-table sd-prob))
-      ;  )
+      (let [[sample-808-bassdrum (itf.smp_add (Sample_File :name "808-bassdrum" :filename (get-random-sample "808" "bass")))]
+            [sample-808-snaredrum (itf.smp_add (Sample_File :name "808-snare" :filename (get-random-sample "808" "snare")))]]
+        (strategy.gen_add (Generator_ProbabilityTable sample-808-bassdrum :probability-table bd-prob))
+        (strategy.gen_add (Generator_ProbabilityTable sample-808-snaredrum :probability-table sd-prob)))
 
       ;(for [s samples-sfxrs]
       ;  (strategy.gen_add (Generator_ProbabilityTable s :probability-table (random.choice [(totally-random-prob) bd-prob sd-prob]))))
 
-      (for [i (xrange 2)]
+      (for [i (xrange 28)]
         (print "pattern" i)
         (itf.ord_add (itf.pat_add (strategy.get_pattern))))
       itf)))
