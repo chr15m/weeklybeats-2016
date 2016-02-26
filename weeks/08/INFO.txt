@@ -1,0 +1,6 @@
+seed: optimistic unchoke
+autotracker: 75b607b859f7ea6eed1f72a9aaac4bc504f59461
+jsfxr: 2e86e3a72c0ed2601e9b3e2e820fb30bd896451a
+chipvolver: 22cf77a64b9c24c939f34d903058d1ce2717654c
+pdvst-fx: 82ff71110cff3a8f7454c644d517f79f6e394b90
+command: ./maketrack.hy "optimistic unchoke"

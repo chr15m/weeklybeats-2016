@@ -88,7 +88,7 @@
 
 (defn fx-retrigger [chunk r]
   (let [[note (get chunk 0)]
-        [rate (r.choice [1 2 3])]
+        [rate (weighted-choice r {1 3 2 3 3 1})] ; more likely to pick 1 or 2 than 3
         [volume-ramp (or (> (len chunk) 8) (< (r.random) 0.5))]]
     (list-comp
       (let [[row-value
@@ -166,7 +166,7 @@
 ; TODO: techdiff-fx.txt
 ; TODO: fx.txt
 (defn make-breaks-fn [sample-chunks-break sample-bassdrum sample-snaredrum &optional
-                      [break-pitch 60] [break-pace 4] [beat-pace 4] [match-beat true] [seed (random.random)]]
+                      [break-pitch 60] [break-pace 4] [beat-pace 4] [match-beat true] [seed random.random]]
   (let [[r (random.Random (value-or-callable seed))]
         [bass-snare-rhythm (r.choice [[1 0 2 0  0 1 2 0]
                                            [0 1 2 0  1 0 2 0]
@@ -197,10 +197,10 @@
                   (setv (get (get pattern.data row) (+ channel-number 1))
                     [60 (get [sample-bassdrum sample-snaredrum] (- which-drum 1)) 64 0 0]))))))))))
 
-(defn make-random-placement-fn [sample-set &optional [seed (random.random)] [volume 64] [probability 0.75] [number-per-pattern-segment 1]]
+(defn make-random-placement-fn [sample-set &optional [seed random.random] [volume 64] [probability 0.75] [number-per-pattern-segment 1]]
   (let [[r (random.Random seed)]
-        [positions (list-comp (random.randint 0 16) [x (range 16)])]
-        [chances (list-comp (random.random) [x (range 16)])]]
+        [positions (list-comp (r.randint 0 16) [x (range 16)])]
+        [chances (list-comp (r.random) [x (range 16)])]]
     (fn [channel-number pattern strategy rhythm beat-begin beats-length key-root key-chord]
       (for [n (range number-per-pattern-segment)]
         (when (< (get-wrapped chances (/ beat-begin beats-length)) probability)
@@ -208,6 +208,14 @@
                 [sample (get-wrapped sample-set (int (/ beat-begin beats-length)))]]
             (setv (get (get pattern.data row) channel-number)
               [60 sample volume 0 0])))))))
+
+(defn make-probability-table-fn [sample &optional [seed random.random] [probability-table []] [pitch 60] [pace 4] [trippy false]]
+  (let [[r (random.Random (value-or-callable seed))]]
+    (fn [channel-number pattern strategy rhythm beat-begin beats-length key-root key-chord]
+      (for [row (xrange beat-begin (+ beat-begin beats-length))]
+        (when (and (< (r.random) (get-wrapped probability-table (/ row pace)))
+                (or trippy (= (% row pace) 0)))
+          (setv (get (get pattern.data row) channel-number) [pitch sample (if (= (% (/ row pace) 2) 0) 64 32) 0 0]))))))
 
 (defn post-process [pattern-list processing-fn]
   (list-comp (list-comp (processing-fn row pattern-data.rows) [row pattern-data.data]) [pattern-data pattern-list]))
@@ -311,9 +319,10 @@
         ;(strategy.gen_add (Generator_ProbabilityTable sample-evolved :probability-table bd-prob)))
 
         (let [[sample-808-bassdrum (itf.smp_add (Sample_File :name "808-bassdrum" :filename (get-random-sample "808" "bass")))]
-              [sample-808-snaredrum (itf.smp_add (Sample_File :name "808-snare" :filename (get-random-sample "808" "snare")))]]
-          (strategy.gen_add (Generator_ProbabilityTable sample-808-bassdrum :probability-table bd-prob))
-          (strategy.gen_add (Generator_ProbabilityTable sample-808-snaredrum :probability-table sd-prob)))
+              [sample-808-snaredrum (itf.smp_add (Sample_File :name "808-snare" :filename (get-random-sample "808" "snare")))]
+              [beat-seed (random.random)]]
+          (strategy.gen_add (Generator_Callback 1 (make-probability-table-fn sample-808-bassdrum :probability-table bd-prob :seed beat-seed :trippy true)))
+          (strategy.gen_add (Generator_Callback 1 (make-probability-table-fn sample-808-snaredrum :probability-table sd-prob :seed beat-seed :trippy true))))
 
         ;(for [s samples-sfxrs]
         ;  (strategy.gen_add (Generator_ProbabilityTable s :probability-table (random.choice [(totally-random-prob) bd-prob sd-prob]))))
@@ -327,9 +336,13 @@
         ; (setv itf.patlist (post-process itf.patlist (make-post-process-breakbeat-fn)))
         
         (print "Applying post-fx")
-        (for [p (range (len itf.patlist))]
-          (print "pattern" p)
-          (apply-fx-to-pattern (get itf.patlist p) 0))
+        (let [[seeds (list-comp (random.random) [x (range 4)])]
+              [pattern [0 0 0 1 2 2 2 3]]]
+          (for [p (range (len itf.patlist))]
+            (print "pattern" p)
+            (apply-fx-to-pattern (get itf.patlist p) 0 :seed (get seeds (get-wrapped pattern p)))
+            ; double whammy
+            (apply-fx-to-pattern (get itf.patlist p) 0)))
         
         itf))))
 
