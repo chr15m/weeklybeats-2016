@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+if [ "$1" = "" ]
+then
+  echo "$0 PREVNUMBER"
+else
+  for x in autotracker chipvolver jsfxr setup INFO.txt "*.hy" sfxrs sfxr-drums sfxr-bass
+  do
+    rsync -az -i ../$1/$x .
+  done
+  mkdir -p samples
+fi
